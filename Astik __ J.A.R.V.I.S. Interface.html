@@ -1,0 +1,1135 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Astik // J.A.R.V.I.S. Interface</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: full-bleed tactical HUD. Fixed canvas/scanline/vignette layers sit behind a centered
+     scrolling content column; four corner telemetry readouts and a dockable terminal float above it. */
+  --bg:#02060f;
+  --bg-deep:#000308;
+  --cyan:#00f0ff;
+  --blue:#0077ff;
+  --amber:#ffb000;
+  --red:#ff3b30;
+  --ink:#d7f6ff;
+  --ink-dim:#5f8aa0;
+  --ink-faint:#2c4a5a;
+  --panel:rgba(4,18,36,.65);
+  --panel-edge:rgba(0,240,255,.35);
+  --accent:var(--cyan);
+  --accent-soft:rgba(0,240,255,.5);
+  --accent-2:var(--blue);
+  --font-display:'Orbitron',sans-serif;
+  --font-ui:'Rajdhani',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --ring-speed:16s;
+  --gutter-l:max(16px,env(safe-area-inset-left,0px));
+  --gutter-r:max(16px,env(safe-area-inset-right,0px));
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-ui);
+  overflow-x:hidden;
+  position:relative;
+  -webkit-tap-highlight-color:transparent;
+}
+body.overdrive{
+  --accent:var(--amber);
+  --accent-soft:rgba(255,176,0,.55);
+  --accent-2:var(--red);
+  --panel-edge:rgba(255,176,0,.45);
+  --ring-speed:5.5s;
+}
+@media (hover:hover) and (pointer:fine){
+  body{cursor:none;}
+  a,button,input,.clickable{cursor:none;}
+}
+h1,h2,h3{font-family:var(--font-display);margin:0;letter-spacing:.04em;text-wrap:balance;}
+p{margin:0;}
+a{color:var(--accent);}
+::selection{background:var(--accent);color:#000;}
+button{font-family:var(--font-ui);}
+
+/* ---------- fixed background layers ---------- */
+#bg-canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0;background:
+  radial-gradient(ellipse at 50% 30%,#061225 0%,var(--bg) 55%,var(--bg-deep) 100%);}
+.grid-overlay{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.35;
+  background-image:
+    linear-gradient(rgba(0,240,255,.07) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,240,255,.07) 1px,transparent 1px);
+  background-size:42px 42px;
+  mask-image:radial-gradient(ellipse at 50% 20%,#000 0%,transparent 75%);
+  -webkit-mask-image:radial-gradient(ellipse at 50% 20%,#000 0%,transparent 75%);}
+.vignette{position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 45%,transparent 45%,rgba(0,2,6,.55) 85%,rgba(0,2,6,.85) 100%);}
+.scanlines{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:.05;mix-blend-mode:screen;
+  background:repeating-linear-gradient(0deg,#fff 0px,#fff 1px,transparent 1px,transparent 3px);}
+.noise-pulse{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;background:var(--accent);
+  transition:opacity .08s linear;}
+
+/* ---------- custom cursor ---------- */
+#reticle{position:fixed;top:0;left:0;width:26px;height:26px;z-index:999;pointer-events:none;
+  transform:translate(-50%,-50%);opacity:0;transition:opacity .2s;}
+#reticle svg{width:100%;height:100%;overflow:visible;}
+#reticle.show{opacity:.9;}
+#reticle.active circle{r:3;}
+
+/* ---------- boot overlay ---------- */
+.boot-overlay{position:fixed;inset:0;z-index:80;background:var(--bg-deep);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  padding:calc(24px + var(--safe-t)) var(--gutter-r) calc(24px + var(--safe-b)) var(--gutter-l);
+  transition:opacity .5s ease,visibility .5s ease;}
+.boot-overlay.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+.boot-rings{position:relative;width:min(46vw,220px);height:min(46vw,220px);}
+.boot-rings svg{width:100%;height:100%;}
+.boot-title{font-family:var(--font-mono);font-size:clamp(11px,2.6vw,15px);color:var(--accent);
+  letter-spacing:.12em;text-align:center;text-shadow:0 0 12px var(--accent-soft);}
+.boot-log{font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);min-height:120px;
+  width:min(90vw,420px);display:flex;flex-direction:column;gap:5px;}
+.boot-log .line{opacity:0;transform:translateY(4px);animation:bootline .25s forwards;}
+.boot-log .ok{color:var(--cyan);}
+@keyframes bootline{to{opacity:1;transform:translateY(0);}}
+.boot-skip{background:transparent;border:1px solid var(--panel-edge);color:var(--ink-dim);
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;padding:8px 16px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.boot-skip:hover{color:var(--accent);border-color:var(--accent);}
+
+/* ---------- HUD corner telemetry ---------- */
+.hud-corner{position:fixed;z-index:30;font-family:var(--font-mono);font-size:10.5px;
+  color:var(--ink-dim);letter-spacing:.06em;pointer-events:none;line-height:1.6;
+  text-shadow:0 0 6px rgba(0,240,255,.15);}
+.hud-corner b{color:var(--accent);font-weight:500;}
+.hud-corner .label{color:var(--ink-faint);}
+.hud-tl{top:calc(14px + var(--safe-t));left:calc(14px + var(--gutter-l));}
+.hud-tr{top:calc(14px + var(--safe-t));right:calc(14px + var(--gutter-r));text-align:right;}
+.hud-bl{bottom:calc(14px + var(--safe-b));left:calc(14px + var(--gutter-l));}
+.hud-br{bottom:calc(14px + var(--safe-b));right:calc(14px + var(--gutter-r));text-align:right;pointer-events:auto;}
+.audio-toggle{pointer-events:auto;background:var(--panel);border:1px solid var(--panel-edge);
+  color:var(--ink-dim);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;
+  padding:6px 10px;margin-top:6px;clip-path:polygon(6px 0,100% 0,100% 100%,0 100%,0 6px);}
+.audio-toggle:hover{color:var(--accent);border-color:var(--accent);}
+.audio-toggle.on{color:var(--accent);border-color:var(--accent);}
+@media (max-width:760px){
+  .hud-tl,.hud-tr{font-size:9.5px;}
+  .hud-bl{display:none;}
+}
+@media (max-width:520px){
+  .hud-tr span.full{display:none;}
+}
+
+/* ---------- page / content ---------- */
+.page{position:relative;z-index:10;padding-left:var(--gutter-l);padding-right:var(--gutter-r);
+  max-width:1180px;margin:0 auto;}
+section{padding-block:96px 64px;border-bottom:1px solid rgba(0,240,255,.08);}
+section:last-of-type{border-bottom:none;}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.3em;color:var(--accent);
+  margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+.eyebrow::before{content:'';width:22px;height:1px;background:var(--accent);}
+.section-head{margin-bottom:44px;}
+.section-head h2{font-size:clamp(22px,3.4vw,32px);color:var(--ink);}
+.section-sub{font-family:var(--font-ui);color:var(--ink-dim);font-size:15px;margin-top:10px;max-width:60ch;}
+
+/* ---------- hero ---------- */
+.hero{padding-top:calc(72px + var(--safe-t));display:grid;grid-template-columns:1.1fr .9fr;
+  gap:40px;align-items:center;min-height:0;}
+.hero-copy .tag{font-family:var(--font-mono);font-size:12px;letter-spacing:.25em;color:var(--accent);
+  margin-bottom:16px;}
+.hero-copy h1{font-size:clamp(32px,5.6vw,56px);line-height:1.08;color:var(--ink);}
+.hero-copy h1 .decode{display:inline-block;}
+.hero-copy h1 .glyph{color:var(--accent);}
+.hero-role{font-family:var(--font-ui);font-weight:600;font-size:clamp(14px,2vw,18px);
+  color:var(--ink-dim);margin-top:14px;letter-spacing:.02em;}
+.hero-bio{margin-top:18px;max-width:52ch;color:var(--ink-dim);font-size:15.5px;line-height:1.55;}
+.hero-base{margin-top:14px;font-family:var(--font-mono);font-size:11.5px;color:var(--ink-faint);
+  letter-spacing:.08em;}
+.hero-actions{margin-top:32px;display:flex;flex-wrap:wrap;gap:12px;}
+.hud-btn{background:var(--panel);border:1px solid var(--panel-edge);color:var(--ink);
+  font-family:var(--font-mono);font-size:12px;letter-spacing:.1em;padding:12px 18px;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  transition:border-color .15s,color .15s,background .15s;position:relative;}
+.hud-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,240,255,.07);}
+.hud-btn.primary{color:var(--accent);border-color:var(--accent);}
+.hud-btn.overdrive-btn:hover{border-color:var(--amber);color:var(--amber);}
+.hud-btn.overdrive-btn.active{color:var(--amber);border-color:var(--amber);background:rgba(255,176,0,.08);}
+
+.reactor-wrap{display:flex;align-items:center;justify-content:center;perspective:900px;}
+.reactor{width:min(70vw,340px);height:min(70vw,340px);position:relative;transition:transform .2s ease-out;
+  transform-style:preserve-3d;}
+.reactor svg{width:100%;height:100%;overflow:visible;}
+.ring-outer{transform-origin:150px 150px;animation:spin var(--ring-speed) linear infinite;}
+.ring-mid{transform-origin:150px 150px;animation:spin-rev calc(var(--ring-speed) * .65) linear infinite;}
+.ring-inner{transform-origin:150px 150px;animation:spin calc(var(--ring-speed) * .4) linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes spin-rev{to{transform:rotate(-360deg);}}
+.core{animation:pulse 2.6s ease-in-out infinite;transform-origin:150px 150px;}
+@keyframes pulse{0%,100%{opacity:.75;transform:scale(1);}50%{opacity:1;transform:scale(1.07);}}
+
+/* ---------- projects ---------- */
+.project-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;}
+.pcard{position:relative;background:var(--panel);border:1px solid var(--panel-edge);
+  padding:24px 22px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);
+  transition:transform .2s,border-color .2s,background .2s;cursor:pointer;}
+.pcard:hover{transform:translateY(-3px);border-color:var(--accent);background:rgba(0,240,255,.06);}
+.pcard .bracket{position:absolute;width:14px;height:14px;border:0 solid var(--accent);opacity:0;
+  transition:opacity .2s;pointer-events:none;}
+.pcard:hover .bracket{opacity:1;}
+.pcard .bracket.tl{top:6px;left:6px;border-top-width:2px;border-left-width:2px;}
+.pcard .bracket.tr{top:6px;right:6px;border-top-width:2px;border-right-width:2px;}
+.pcard .bracket.bl{bottom:6px;left:6px;border-bottom-width:2px;border-left-width:2px;}
+.pcard .bracket.br{bottom:6px;right:6px;border-bottom-width:2px;border-right-width:2px;}
+.pcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+.pcard h3{font-size:16.5px;color:var(--ink);line-height:1.3;}
+.badge{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;padding:4px 8px;
+  white-space:nowrap;border:1px solid currentColor;flex:none;}
+.badge.deployed{color:var(--cyan);}
+.badge.active{color:var(--amber);}
+.badge.open{color:var(--blue);}
+.pcard p{color:var(--ink-dim);font-size:13.8px;line-height:1.55;margin-bottom:14px;}
+.pcard .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
+.tag-chip{font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);
+  border:1px solid rgba(0,240,255,.2);padding:3px 7px;}
+.pcard .more{font-family:var(--font-mono);font-size:10.5px;color:var(--accent);letter-spacing:.08em;}
+@media (max-width:760px){.project-grid{grid-template-columns:1fr;}}
+
+/* ---------- modal ---------- */
+.modal-backdrop{position:fixed;inset:0;z-index:60;background:rgba(0,2,6,.75);
+  backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;
+  padding:calc(16px + var(--safe-t)) var(--gutter-r) calc(16px + var(--safe-b)) var(--gutter-l);
+  opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-backdrop.open{opacity:1;pointer-events:auto;}
+.modal{width:min(640px,100%);max-height:84vh;overflow-y:auto;background:#040d1a;
+  border:1px solid var(--accent);padding:30px 28px;position:relative;
+  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px);
+  box-shadow:0 0 40px rgba(0,240,255,.12);}
+.modal-close{position:absolute;top:14px;right:18px;background:none;border:none;color:var(--ink-dim);
+  font-family:var(--font-mono);font-size:18px;line-height:1;padding:4px;}
+.modal-close:hover{color:var(--accent);}
+.modal .eyebrow2{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);letter-spacing:.15em;margin-bottom:8px;}
+.modal h3{font-size:22px;color:var(--ink);margin-bottom:4px;}
+.modal .status-line{font-family:var(--font-mono);font-size:11px;margin-bottom:18px;}
+.modal h4{font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:.14em;
+  margin:20px 0 8px;}
+.modal p{color:var(--ink-dim);font-size:14.5px;line-height:1.6;}
+.modal ul{margin:0;padding-left:18px;color:var(--ink-dim);font-size:14px;line-height:1.75;}
+.modal .tags{display:flex;flex-wrap:wrap;gap:7px;}
+.modal-gh{display:inline-flex;align-items:center;gap:8px;margin-top:22px;color:var(--accent);
+  font-family:var(--font-mono);font-size:12.5px;border:1px solid var(--accent);padding:10px 16px;}
+.modal-gh:hover{background:rgba(0,240,255,.08);}
+
+/* ---------- skills ---------- */
+.skills-layout{display:grid;grid-template-columns:.95fr 1.05fr;gap:40px;align-items:start;}
+.cat-tabs{display:flex;flex-direction:column;gap:8px;}
+.cat-tab{background:var(--panel);border:1px solid var(--panel-edge);color:var(--ink-dim);
+  text-align:left;font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;
+  padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;
+  clip-path:polygon(10px 0,100% 0,100% 100%,0 100%,0 10px);}
+.cat-tab:hover{color:var(--ink);border-color:var(--accent);}
+.cat-tab.active{color:var(--accent);border-color:var(--accent);background:rgba(0,240,255,.06);}
+.cat-tab .pct{font-weight:700;}
+.radar-wrap{display:flex;justify-content:center;}
+.radar-wrap svg{width:100%;max-width:340px;height:auto;}
+.meter-grid{margin-top:30px;display:grid;grid-template-columns:repeat(2,1fr);gap:14px 22px;}
+.meter{opacity:1;transition:opacity .25s;}
+.meter.dim{opacity:.25;}
+.meter-top{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11.5px;
+  margin-bottom:6px;}
+.meter-top .n{color:var(--ink);}
+.meter-top .v{color:var(--accent);}
+.meter-bar{height:5px;background:rgba(0,240,255,.1);position:relative;overflow:hidden;}
+.meter-bar i{position:absolute;inset:0;width:var(--w,0%);background:linear-gradient(90deg,var(--accent-2),var(--accent));
+  transition:width .9s cubic-bezier(.2,.9,.2,1);}
+@media (max-width:860px){.skills-layout{grid-template-columns:1fr;}.radar-wrap{order:-1;margin-bottom:10px;}}
+@media (max-width:520px){.meter-grid{grid-template-columns:1fr;}}
+
+/* ---------- contact ---------- */
+.contact-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:40px;}
+.comm-node{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  background:var(--panel);border:1px solid var(--panel-edge);padding:14px 16px;margin-bottom:12px;
+  clip-path:polygon(10px 0,100% 0,100% 100%,0 100%,0 10px);}
+.comm-node .meta{overflow:hidden;}
+.comm-node .k{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-faint);letter-spacing:.12em;}
+.comm-node .v{font-family:var(--font-mono);font-size:13px;color:var(--ink);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.copy-btn{flex:none;background:transparent;border:1px solid var(--panel-edge);color:var(--ink-dim);
+  font-family:var(--font-mono);font-size:10px;padding:7px 10px;letter-spacing:.06em;}
+.copy-btn:hover{color:var(--accent);border-color:var(--accent);}
+.copy-btn.copied{color:var(--cyan);border-color:var(--cyan);}
+.tx-form{background:var(--panel);border:1px solid var(--panel-edge);padding:24px;position:relative;
+  clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px);}
+.field{margin-bottom:16px;}
+.field label{display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);
+  letter-spacing:.1em;margin-bottom:6px;}
+.field input,.field textarea{width:100%;background:rgba(0,10,20,.5);border:1px solid var(--panel-edge);
+  color:var(--ink);font-family:var(--font-ui);font-size:14.5px;padding:10px 12px;resize:vertical;}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);}
+.tx-submit{width:100%;background:transparent;border:1px solid var(--accent);color:var(--accent);
+  font-family:var(--font-mono);font-size:13px;letter-spacing:.12em;padding:13px;position:relative;
+  overflow:hidden;}
+.tx-submit:hover{background:rgba(0,240,255,.08);}
+.tx-submit .fill{position:absolute;inset:0;background:var(--accent);width:0;transition:width 1.1s linear;
+  opacity:.18;}
+.tx-status{margin-top:12px;font-family:var(--font-mono);font-size:11.5px;color:var(--cyan);
+  min-height:16px;}
+@media (max-width:860px){.contact-grid{grid-template-columns:1fr;}}
+
+footer{padding:36px 0 calc(36px + var(--safe-b));text-align:center;font-family:var(--font-mono);
+  font-size:10.5px;color:var(--ink-faint);letter-spacing:.1em;}
+
+/* ---------- terminal ---------- */
+.terminal{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#030a16;
+  border-top:1px solid var(--accent);transform:translateY(100%);transition:transform .3s ease;
+  max-height:52vh;display:flex;flex-direction:column;box-shadow:0 -10px 40px rgba(0,240,255,.1);
+  padding-bottom:var(--safe-b);}
+.terminal.open{transform:translateY(0);}
+.terminal-header{display:flex;justify-content:space-between;align-items:center;
+  padding:10px calc(16px + var(--gutter-r)) 10px calc(16px + var(--gutter-l));
+  border-bottom:1px solid rgba(0,240,255,.15);font-family:var(--font-mono);font-size:11px;
+  color:var(--accent);letter-spacing:.1em;}
+.term-close{background:none;border:none;color:var(--ink-dim);font-family:var(--font-mono);
+  font-size:16px;line-height:1;padding:2px 6px;}
+.term-close:hover{color:var(--accent);}
+.terminal-log{flex:1;overflow-y:auto;padding:12px calc(16px + var(--gutter-r)) 8px calc(16px + var(--gutter-l));
+  font-family:var(--font-mono);font-size:12.5px;line-height:1.7;color:var(--ink-dim);}
+.terminal-log .cmd{color:var(--ink);}
+.terminal-log .cmd::before{content:'$ ';color:var(--accent);}
+.terminal-log .ok{color:var(--cyan);}
+.terminal-log .warn{color:var(--amber);}
+.terminal-log .dim{color:var(--ink-faint);}
+.term-form{display:flex;align-items:center;gap:8px;
+  padding:10px calc(16px + var(--gutter-r)) calc(12px + var(--safe-b)) calc(16px + var(--gutter-l));
+  border-top:1px solid rgba(0,240,255,.1);}
+.term-form .prompt{font-family:var(--font-mono);font-size:12.5px;color:var(--accent);white-space:nowrap;}
+.term-form input{flex:1;min-width:0;background:transparent;border:none;color:var(--ink);
+  font-family:var(--font-mono);font-size:13px;outline:none;}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion:reduce){
+  .ring-outer,.ring-mid,.ring-inner,.core{animation:none !important;}
+  .reactor{transition:none;}
+}
+</style>
+
+<canvas id="bg-canvas"></canvas>
+<div class="grid-overlay"></div>
+<div class="vignette"></div>
+<div class="scanlines"></div>
+<div class="noise-pulse" id="noisePulse"></div>
+<div id="reticle"><svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="none" stroke="var(--accent)" stroke-width="1"/><line x1="13" y1="0" x2="13" y2="6" stroke="var(--accent)" stroke-width="1"/><line x1="13" y1="20" x2="13" y2="26" stroke="var(--accent)" stroke-width="1"/><line x1="0" y1="13" x2="6" y2="13" stroke="var(--accent)" stroke-width="1"/><line x1="20" y1="13" x2="26" y2="13" stroke="var(--accent)" stroke-width="1"/><circle cx="13" cy="13" r="1.4" fill="var(--accent)"/></svg></div>
+
+<div class="boot-overlay" id="boot">
+  <div class="boot-rings">
+    <svg viewBox="0 0 220 220">
+      <circle cx="110" cy="110" r="40" fill="none" stroke="var(--accent)" stroke-width="1.4" opacity=".9">
+        <animate attributeName="r" values="10;40" dur="1.1s" fill="freeze"/>
+        <animate attributeName="opacity" values="0;.9" dur=".4s" fill="freeze"/>
+      </circle>
+      <circle cx="110" cy="110" r="70" fill="none" stroke="var(--accent)" stroke-width="1" opacity=".6" stroke-dasharray="4 6">
+        <animate attributeName="r" values="10;70" dur="1.5s" fill="freeze"/>
+        <animate attributeName="opacity" values="0;.6" dur=".6s" begin=".2s" fill="freeze"/>
+      </circle>
+      <circle cx="110" cy="110" r="95" fill="none" stroke="var(--accent)" stroke-width=".6" opacity=".35">
+        <animate attributeName="r" values="10;95" dur="1.9s" fill="freeze"/>
+        <animate attributeName="opacity" values="0;.35" dur=".8s" begin=".4s" fill="freeze"/>
+      </circle>
+      <text x="110" y="116" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="var(--accent)" opacity="0">
+        INIT
+        <animate attributeName="opacity" values="0;1" dur=".3s" begin="1.4s" fill="freeze"/>
+      </text>
+    </svg>
+  </div>
+  <div class="boot-title">ASTIK.OS // J.A.R.V.I.S. INTERFACE v4.2</div>
+  <div class="boot-log" id="bootLog"></div>
+  <button class="boot-skip" id="skipBoot">[ SKIP BOOT ]</button>
+</div>
+
+<div class="hud-corner hud-tl">
+  <div class="label">SYS.01 // LOCAL TIME</div>
+  <div><b id="hudClock">00:00:00.000</b></div>
+  <div class="label" style="margin-top:4px;">SEC-04 // SESSION</div>
+  <div><b id="hudSession">AUTH_GUEST</b></div>
+</div>
+<div class="hud-corner hud-tr">
+  <div class="label">LAT: <b id="hudLoad">—</b>ms <span class="full">// CORE LOAD</span></div>
+  <div><span class="label">MEM</span> <b id="hudMem">—</b><span class="full">MB / 16384MB</span></div>
+  <div class="label" style="margin-top:4px;">NODE: <b id="hudNode">BHOPAL-IN</b></div>
+</div>
+<div class="hud-corner hud-bl">
+  <div class="label">TGT.X/Y</div>
+  <div><b id="hudCoords">0000 / 0000</b></div>
+</div>
+<div class="hud-corner hud-br">
+  <div class="label">SCROLL DEPTH</div>
+  <div><b id="hudScroll">000%</b></div>
+  <button class="audio-toggle" id="audioToggle">AUDIO: OFF</button>
+</div>
+
+<main class="page" id="page">
+
+  <section class="hero" id="hero">
+    <div class="hero-copy">
+      <div class="tag">// CALLSIGN: ASTIKSTARK</div>
+      <h1 id="decodeTitle" class="decode">ASTIK MISHRA</h1>
+      <div class="hero-role">Computer Science Engineer <span class="glyph">·</span> Systems, Android &amp; Local AI Architect</div>
+      <p class="hero-bio">First-year B.Tech CSE builder obsessed with engineering intelligent local systems, open-source mobile apps, and high-performance software. Active builder at HackGrid.</p>
+      <div class="hero-base">BASE: VIT BHOPAL UNIVERSITY, INDIA &nbsp;//&nbsp; ORIGIN: HARDOI, UP</div>
+      <div class="hero-actions">
+        <button class="hud-btn primary clickable" id="btnInspect">[ INSPECT SCHEMATICS ]</button>
+        <button class="hud-btn clickable" id="btnTerminal">[ OPEN TERMINAL ]</button>
+        <button class="hud-btn overdrive-btn clickable" id="btnOverdrive">[ OVERDRIVE MODE ]</button>
+      </div>
+    </div>
+    <div class="reactor-wrap">
+      <div class="reactor" id="reactor">
+        <svg viewBox="0 0 300 300">
+          <defs>
+            <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="var(--accent)" stop-opacity="1"/>
+              <stop offset="60%" stop-color="var(--accent)" stop-opacity=".45"/>
+              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="150" cy="150" r="128" fill="none" stroke="var(--panel-edge)" stroke-width="1"/>
+          <g class="ring-outer">
+            <circle cx="150" cy="150" r="118" fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="2 10" opacity=".85"/>
+            <g id="ticksOuter"></g>
+          </g>
+          <g class="ring-mid">
+            <circle cx="150" cy="150" r="92" fill="none" stroke="var(--accent-2)" stroke-width="1.2" stroke-dasharray="18 6" opacity=".7"/>
+          </g>
+          <g class="ring-inner">
+            <circle cx="150" cy="150" r="66" fill="none" stroke="var(--accent)" stroke-width="1" opacity=".55"/>
+            <g id="ticksInner"></g>
+          </g>
+          <g class="core">
+            <circle cx="150" cy="150" r="46" fill="url(#coreGlow)"/>
+            <circle cx="150" cy="150" r="30" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+            <circle cx="150" cy="150" r="8" fill="var(--accent)"/>
+          </g>
+          <text x="150" y="292" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="var(--ink-faint)" letter-spacing="2">ARC-CORE // OUTPUT NOMINAL</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="projects" id="projects">
+    <div class="section-head">
+      <div class="eyebrow">ACTIVE DEPLOYMENTS</div>
+      <h2>Project Schematics</h2>
+      <p class="section-sub">Systems shipped and in flight. Click a schematic for the full architecture breakdown.</p>
+    </div>
+    <div class="project-grid" id="projectGrid"></div>
+  </section>
+
+  <section class="skills" id="skills">
+    <div class="section-head">
+      <div class="eyebrow">DIAGNOSTIC SWEEP</div>
+      <h2>Systems &amp; Capabilities Matrix</h2>
+      <p class="section-sub">Select a subsystem to isolate its readouts on the power grid below.</p>
+    </div>
+    <div class="skills-layout">
+      <div>
+        <div class="cat-tabs" id="catTabs"></div>
+        <div class="radar-wrap"><svg id="radarSvg" viewBox="0 0 300 300"></svg></div>
+      </div>
+      <div class="meter-grid" id="meterGrid"></div>
+    </div>
+  </section>
+
+  <section class="contact" id="contact">
+    <div class="section-head">
+      <div class="eyebrow">ENCRYPTED CHANNEL</div>
+      <h2>Transmission Uplink</h2>
+      <p class="section-sub">Open a comm-link. All transmissions are routed through the local relay.</p>
+    </div>
+    <div class="contact-grid">
+      <div>
+        <div class="comm-node">
+          <div class="meta"><div class="k">GITHUB UPLINK</div><div class="v">github.com/astikstark</div></div>
+          <button class="copy-btn clickable" data-copy="https://github.com/astikstark">COPY</button>
+        </div>
+        <div class="comm-node">
+          <div class="meta"><div class="k">LINKEDIN UPLINK</div><div class="v" id="liText">linkedin.com/in/astikstark</div></div>
+          <button class="copy-btn clickable" data-copy="https://linkedin.com/in/astikstark">COPY</button>
+        </div>
+        <div class="comm-node">
+          <div class="meta"><div class="k">SECURE EMAIL</div><div class="v" id="emailText">contact@astikstark.dev</div></div>
+          <button class="copy-btn clickable" data-copy="contact@astikstark.dev">COPY</button>
+        </div>
+        <div class="comm-node">
+          <div class="meta"><div class="k">RESUME ARCHIVE</div><div class="v">resume_astik_mishra.pdf</div></div>
+          <button class="copy-btn clickable" id="resumeBtn">LINK</button>
+        </div>
+      </div>
+      <form class="tx-form" id="txForm">
+        <div class="field"><label>IDENTIFY YOURSELF</label><input type="text" id="fName" required placeholder="Name"></div>
+        <div class="field"><label>RETURN FREQUENCY</label><input type="email" id="fEmail" required placeholder="you@domain.com"></div>
+        <div class="field"><label>MESSAGE PAYLOAD</label><textarea id="fMsg" rows="4" required placeholder="Transmission content..."></textarea></div>
+        <button class="tx-submit clickable" type="submit"><span class="fill" id="txFill"></span><span style="position:relative;">[ DISPATCH TRANSMISSION ]</span></button>
+        <div class="tx-status" id="txStatus"></div>
+      </form>
+    </div>
+  </section>
+
+  <footer>ASTIK.OS v4.2 &nbsp;//&nbsp; ALL SYSTEMS NOMINAL &nbsp;//&nbsp; &copy; <span id="yearNow"></span> ASTIK MISHRA</footer>
+</main>
+
+<div class="terminal" id="terminal">
+  <div class="terminal-header">
+    <span>J.A.R.V.I.S. COMMAND TERMINAL</span>
+    <button class="term-close clickable" id="termClose">&times;</button>
+  </div>
+  <div class="terminal-log" id="termLog"></div>
+  <form class="term-form" id="termForm">
+    <span class="prompt">astik@jarvis:~$</span>
+    <input id="termInput" autocomplete="off" spellcheck="false" placeholder="type 'help'">
+  </form>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===================== DATA ===================== */
+var PROJECTS = [
+  {
+    id:"jarvis",
+    name:"J.A.R.V.I.S. Local Voice Assistant",
+    status:"DEPLOYED",
+    statusClass:"deployed",
+    short:"GPU-accelerated, privacy-first voice assistant running fully offline on Windows.",
+    architecture:"A fully local pipeline with no paid cloud APIs: a wake-word listener hands audio to faster-whisper (CUDA) for speech-to-text, an Ollama LLM reasons over the request and calls local tools, and Piper TTS speaks the reply back in an interruptible voice. OS-level actions (opening apps, reading system state) are wired through pyautogui, psutil and subprocess, with the whole stack built to run on the RTX 4050 laptop GPU it was designed for.",
+    highlights:[
+      "Wake word ‘Jarvis’ with a dry, understated persona layered into every reply",
+      "faster-whisper STT accelerated on an 8GB RTX 4050, no network round-trip",
+      "Ollama-driven tool calling for real OS control, not scripted responses",
+      "Interruptible Piper/Kokoro TTS so the assistant can be talked over mid-sentence"
+    ],
+    tags:["Python","Ollama","faster-whisper","Piper TTS","CUDA"],
+    github:"https://github.com/astikstark/jarvis-assistant"
+  },
+  {
+    id:"camcraft",
+    name:"CamCraft",
+    status:"ACTIVE_DEV",
+    statusClass:"active",
+    short:"Open-source Android camera app built on CameraX and Jetpack Compose.",
+    architecture:"A modern camera client built around CameraX's use-case model (preview, capture, analysis) with a fully declarative Jetpack Compose UI on top. Captured media is written through MediaStore and the Storage Access Framework so files land correctly across Android versions without legacy storage permissions.",
+    highlights:[
+      "CameraX use-cases kept decoupled from UI state for clean lifecycle handling",
+      "Compose-first interface with no legacy View/XML layouts",
+      "Scoped-storage-safe saves via MediaStore and SAF",
+      "Actively iterating toward manual exposure and RAW capture"
+    ],
+    tags:["Kotlin","Jetpack Compose","CameraX","MediaStore"],
+    github:"https://github.com/astikstark/camcraft"
+  },
+  {
+    id:"retail",
+    name:"Retail Inventory & Sales Analytics Engine",
+    status:"OPEN_SOURCE",
+    statusClass:"open",
+    short:"High-speed analytics and inventory engine for real-time retail telemetry.",
+    architecture:"A lightweight engine that ingests point-of-sale and stock events and turns them into live inventory counts and sales analytics. Built for speed over heavy infrastructure, favoring a direct, query-friendly data layer over a queued pipeline so retail staff see numbers update immediately.",
+    highlights:[
+      "Real-time stock-level recalculation on every transaction",
+      "Sales analytics views built for fast read access at register speed",
+      "Published open-source for other small-retail builders to extend"
+    ],
+    tags:["Python","SQL","Analytics"],
+    github:"https://github.com/astikstark/retail-inventory-analytics"
+  },
+  {
+    id:"campus",
+    name:"Smart Campus Resource & Study Space Reservation System",
+    status:"DEPLOYED",
+    statusClass:"deployed",
+    short:"Full-stack booking system for campus study spaces and shared resources.",
+    architecture:"A full-stack reservation system where a Python service layer sits over a SQLite3 store, modeling rooms, equipment and time-slots as bookable resources. Handles conflict checks at booking time so two students can never be double-booked into the same space.",
+    highlights:[
+      "Conflict-safe slot booking logic for rooms and shared equipment",
+      "SQLite3 schema modeling resources, slots and reservations cleanly",
+      "Deployed and in active use for campus study-space allocation"
+    ],
+    tags:["Python","SQLite3","Full-Stack"],
+    github:"https://github.com/astikstark/campus-reservation-system"
+  }
+];
+
+var SKILLS = {
+  "Core Languages":{
+    key:"lang",
+    items:[["Python",94],["C++",82],["Kotlin",86],["SQL",80]]
+  },
+  "AI & Local Inference":{
+    key:"ai",
+    items:[["Ollama",88],["faster-whisper",85],["Piper TTS",78],["Local LLM Pipelines",83]]
+  },
+  "Mobile & UI":{
+    key:"mobile",
+    items:[["Android SDK",80],["Jetpack Compose",87],["CameraX",76]]
+  },
+  "Systems & DevOps":{
+    key:"sys",
+    items:[["Linux (WSL)",84],["Git / GitHub",90],["SQLite3",81],["VS Code / PowerShell",88]]
+  }
+};
+var CAT_NAMES = Object.keys(SKILLS);
+
+var TERM_LINES_HELP = [
+  "AVAILABLE DIRECTIVES:",
+  "  help      - list directives",
+  "  whoami    - identity readout",
+  "  projects  - list active deployments",
+  "  skills    - subsystem diagnostic summary",
+  "  github    - open uplink coordinates",
+  "  status    - full system status",
+  "  overdrive - toggle alert theme",
+  "  clear     - flush terminal buffer"
+];
+
+/* ===================== BOOT SEQUENCE ===================== */
+var bootTimers = [];
+var bootLines = [
+  "NEURAL_CORE: ONLINE",
+  "RTX_TELEMETRY: NOMINAL",
+  "AUDIO_SYNTH: STANDBY",
+  "GITHUB_UPLINK: CONNECTED",
+  "HUD_RENDER: 60FPS LOCK",
+  "ASTIK.OS: READY"
+];
+function runBoot(){
+  var log = document.getElementById("bootLog");
+  bootLines.forEach(function(text,i){
+    var t = setTimeout(function(){
+      var div = document.createElement("div");
+      div.className = "line" + (text.indexOf("ONLINE")>-1||text.indexOf("NOMINAL")>-1||text.indexOf("CONNECTED")>-1||text.indexOf("READY")>-1||text.indexOf("LOCK")>-1 ? " ok":"");
+      div.textContent = "[ " + String(i+1).padStart(2,"0") + " ] " + text;
+      log.appendChild(div);
+    }, 140 + i*330);
+    bootTimers.push(t);
+  });
+  var finish = setTimeout(finishBoot, 2200);
+  bootTimers.push(finish);
+}
+function finishBoot(){
+  bootTimers.forEach(clearTimeout);
+  bootTimers = [];
+  var boot = document.getElementById("boot");
+  boot.classList.add("hidden");
+  startDecodeText();
+}
+document.getElementById("skipBoot").addEventListener("click", finishBoot);
+
+/* ===================== DECODE / GLITCH TEXT ===================== */
+function startDecodeText(){
+  var el = document.getElementById("decodeTitle");
+  var target = el.textContent;
+  var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#%&$0123456789";
+  var revealed = 0;
+  var frame = 0;
+  var iv = setInterval(function(){
+    frame++;
+    if (frame % 2 === 0 && revealed < target.length) revealed++;
+    var out = "";
+    for (var i=0;i<target.length;i++){
+      if (target[i] === " "){ out += " "; continue; }
+      if (i < revealed) out += target[i];
+      else out += chars[Math.floor(Math.random()*chars.length)];
+    }
+    el.textContent = out;
+    if (revealed >= target.length){
+      clearInterval(iv);
+      el.textContent = target;
+    }
+  }, 40);
+}
+
+/* ===================== BACKGROUND CANVAS (hex / particle field) ===================== */
+(function(){
+  var canvas = document.getElementById("bg-canvas");
+  var ctx = canvas.getContext("2d");
+  var w,h,dpr;
+  var particles = [];
+  var parallax = {x:0,y:0};
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio||1,2);
+    w = window.innerWidth; h = window.innerHeight;
+    canvas.width = w*dpr; canvas.height = h*dpr;
+    canvas.style.width = w+"px"; canvas.style.height = h+"px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var count = Math.min(90, Math.floor((w*h)/16000));
+    particles = [];
+    for (var i=0;i<count;i++){
+      particles.push({
+        x:Math.random()*w, y:Math.random()*h,
+        r:Math.random()*1.4+.3,
+        vy:Math.random()*.12+.03,
+        a:Math.random()*.5+.15
+      });
+    }
+  }
+  window.addEventListener("resize", resize);
+  resize();
+  window.addEventListener("mousemove", function(e){
+    parallax.x = (e.clientX/w - .5) * 10;
+    parallax.y = (e.clientY/h - .5) * 10;
+  });
+  function tick(){
+    ctx.clearRect(0,0,w,h);
+    var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#00f0ff";
+    ctx.save();
+    ctx.translate(parallax.x, parallax.y);
+    for (var i=0;i<particles.length;i++){
+      var p = particles[i];
+      p.y -= p.vy;
+      if (p.y < -5){ p.y = h+5; p.x = Math.random()*w; }
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle = accent;
+      ctx.globalAlpha = p.a;
+      ctx.fill();
+    }
+    ctx.restore();
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
+/* ===================== CUSTOM CURSOR ===================== */
+(function(){
+  var fine = window.matchMedia("(hover:hover) and (pointer:fine)").matches;
+  if (!fine) return;
+  var r = document.getElementById("reticle");
+  r.classList.add("show");
+  window.addEventListener("mousemove", function(e){
+    r.style.transform = "translate(" + e.clientX + "px," + e.clientY + "px) translate(-50%,-50%)";
+  });
+  window.addEventListener("mousedown", function(){ r.classList.add("active"); });
+  window.addEventListener("mouseup", function(){ r.classList.remove("active"); });
+})();
+
+/* ===================== HUD TELEMETRY ===================== */
+(function(){
+  var clockEl = document.getElementById("hudClock");
+  var loadEl = document.getElementById("hudLoad");
+  var memEl = document.getElementById("hudMem");
+  var coordsEl = document.getElementById("hudCoords");
+  var scrollEl = document.getElementById("hudScroll");
+  function pad(n,len){ return String(n).padStart(len||2,"0"); }
+  function tickClock(){
+    var d = new Date();
+    clockEl.textContent = pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds())+"."+pad(d.getMilliseconds(),3);
+    requestAnimationFrame(tickClock);
+  }
+  requestAnimationFrame(tickClock);
+  setInterval(function(){
+    loadEl.textContent = (8 + Math.random()*20).toFixed(0);
+    memEl.textContent = (2100 + Math.random()*900).toFixed(0);
+  }, 1400);
+  window.addEventListener("mousemove", function(e){
+    coordsEl.textContent = pad(e.clientX,4) + " / " + pad(e.clientY,4);
+  });
+  window.addEventListener("scroll", function(){
+    var h = document.documentElement;
+    var pct = h.scrollHeight > h.clientHeight ? (h.scrollTop/(h.scrollHeight-h.clientHeight))*100 : 0;
+    scrollEl.textContent = pad(Math.round(pct),3) + "%";
+  });
+})();
+
+/* ===================== AUDIO ENGINE ===================== */
+var Audio1 = (function(){
+  var ctx = null, enabled = false;
+  function ensure(){
+    if (!ctx){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+  function tone(freq,dur,type,vol){
+    if (!enabled) return;
+    var c = ensure();
+    if (!c) return;
+    var osc = c.createOscillator();
+    var gain = c.createGain();
+    osc.type = type || "sine";
+    osc.frequency.value = freq;
+    gain.gain.value = vol || .05;
+    gain.gain.exponentialRampToValueAtTime(.0001, c.currentTime + dur);
+    osc.connect(gain).connect(c.destination);
+    osc.start();
+    osc.stop(c.currentTime + dur);
+  }
+  return {
+    hover:function(){ tone(1400,.05,"sine",.03); },
+    click:function(){ tone(900,.07,"square",.04); },
+    confirm:function(){ tone(1100,.09,"sine",.05); setTimeout(function(){tone(1500,.09,"sine",.05);},70); },
+    alert:function(){ tone(260,.25,"sawtooth",.05); },
+    toggle:function(v){ enabled = v; if (v) ensure(); },
+    isEnabled:function(){ return enabled; }
+  };
+})();
+(function(){
+  var btn = document.getElementById("audioToggle");
+  btn.addEventListener("click", function(){
+    var next = !Audio1.isEnabled();
+    Audio1.toggle(next);
+    btn.textContent = "AUDIO: " + (next?"ON":"OFF");
+    btn.classList.toggle("on", next);
+    if (next) Audio1.confirm();
+  });
+  document.querySelectorAll(".clickable, button, .pcard, .cat-tab").forEach(function(el){
+    el.addEventListener("mouseenter", function(){ Audio1.hover(); });
+    el.addEventListener("click", function(){ Audio1.click(); });
+  });
+})();
+
+/* ===================== ARC REACTOR TICKS + TILT ===================== */
+(function(){
+  var svgNS = "http://www.w3.org/2000/svg";
+  function buildTicks(id,cx,cy,r,count){
+    var g = document.getElementById(id);
+    for (var i=0;i<count;i++){
+      var angle = (360/count)*i;
+      var major = i % 6 === 0;
+      var line = document.createElementNS(svgNS,"line");
+      line.setAttribute("x1",cx); line.setAttribute("y1",cy-r);
+      line.setAttribute("x2",cx); line.setAttribute("y2",cy-r+(major?12:6));
+      line.setAttribute("transform","rotate("+angle+" "+cx+" "+cy+")");
+      line.setAttribute("stroke","var(--accent)");
+      line.setAttribute("stroke-width",major?"2":"1");
+      line.setAttribute("opacity",major?"0.9":"0.35");
+      g.appendChild(line);
+    }
+  }
+  buildTicks("ticksOuter",150,150,118,36);
+  buildTicks("ticksInner",150,150,66,16);
+
+  var hero = document.getElementById("hero");
+  var reactor = document.getElementById("reactor");
+  hero.addEventListener("mousemove", function(e){
+    var rect = hero.getBoundingClientRect();
+    var cx = rect.left + rect.width/2;
+    var cy = rect.top + rect.height/2;
+    var dx = (e.clientX - cx)/ (rect.width/2);
+    var dy = (e.clientY - cy)/ (rect.height/2);
+    var ry = Math.max(-1,Math.min(1,dx)) * 10;
+    var rx = Math.max(-1,Math.min(1,dy)) * -10;
+    reactor.style.transform = "rotateX("+rx+"deg) rotateY("+ry+"deg)";
+  });
+  hero.addEventListener("mouseleave", function(){
+    reactor.style.transform = "rotateX(0deg) rotateY(0deg)";
+  });
+})();
+
+/* ===================== OVERDRIVE MODE ===================== */
+var overdriveOn = false;
+function setOverdrive(on){
+  overdriveOn = on;
+  document.body.classList.toggle("overdrive", on);
+  document.getElementById("btnOverdrive").classList.toggle("active", on);
+  if (on) Audio1.alert();
+}
+document.getElementById("btnOverdrive").addEventListener("click", function(){
+  setOverdrive(!overdriveOn);
+  termPrint(overdriveOn ? "OVERDRIVE ENGAGED. Alert palette online, ring rotation elevated." : "OVERDRIVE DISENGAGED. Returning to standard cyan profile.", overdriveOn?"warn":"ok");
+});
+
+/* ===================== QUICK ACTIONS ===================== */
+document.getElementById("btnInspect").addEventListener("click", function(){
+  document.getElementById("projects").scrollIntoView({behavior:"smooth"});
+});
+document.getElementById("btnTerminal").addEventListener("click", function(){ openTerminal(); });
+
+/* ===================== PROJECTS ===================== */
+(function(){
+  var grid = document.getElementById("projectGrid");
+  PROJECTS.forEach(function(p){
+    var card = document.createElement("div");
+    card.className = "pcard";
+    card.innerHTML =
+      '<span class="bracket tl"></span><span class="bracket tr"></span><span class="bracket bl"></span><span class="bracket br"></span>'+
+      '<div class="pcard-top"><h3>'+p.name+'</h3><span class="badge '+p.statusClass+'">'+p.status+'</span></div>'+
+      '<p>'+p.short+'</p>'+
+      '<div class="tags">'+p.tags.map(function(t){return '<span class="tag-chip">'+t+'</span>';}).join("")+'</div>'+
+      '<div class="more">[ OPEN SCHEMATIC ]</div>';
+    card.addEventListener("click", function(){ openModal(p); });
+    grid.appendChild(card);
+  });
+})();
+
+/* ===================== MODAL ===================== */
+function openModal(p){
+  var backdrop = document.getElementById("modalBackdrop");
+  var modal = document.getElementById("modal");
+  modal.innerHTML =
+    '<button class="modal-close" id="modalClose">&times;</button>'+
+    '<div class="eyebrow2">SCHEMATIC // '+p.id.toUpperCase()+'</div>'+
+    '<h3>'+p.name+'</h3>'+
+    '<div class="status-line badge '+p.statusClass+'" style="display:inline-block;border:1px solid currentColor;padding:4px 9px;">'+p.status+'</div>'+
+    '<h4>ARCHITECTURE OVERVIEW</h4><p>'+p.architecture+'</p>'+
+    '<h4>TECH STACK</h4><div class="tags">'+p.tags.map(function(t){return '<span class="tag-chip">'+t+'</span>';}).join("")+'</div>'+
+    '<h4>ENGINEERING HIGHLIGHTS</h4><ul>'+p.highlights.map(function(h){return '<li>'+h+'</li>';}).join("")+'</ul>'+
+    '<a class="modal-gh" href="'+p.github+'" target="_blank" rel="noopener">&#8599; VIEW ON GITHUB</a>';
+  backdrop.classList.add("open");
+  document.getElementById("modalClose").addEventListener("click", closeModal);
+}
+function closeModal(){ document.getElementById("modalBackdrop").classList.remove("open"); }
+document.getElementById("modalBackdrop").addEventListener("click", function(e){
+  if (e.target.id === "modalBackdrop") closeModal();
+});
+document.addEventListener("keydown", function(e){
+  if (e.key === "Escape") closeModal();
+});
+
+/* ===================== SKILLS: TABS + RADAR + METERS ===================== */
+var activeCat = null;
+function categoryAvg(name){
+  var items = SKILLS[name].items;
+  var sum = 0;
+  items.forEach(function(it){ sum += it[1]; });
+  return Math.round(sum/items.length);
+}
+function renderCatTabs(){
+  var wrap = document.getElementById("catTabs");
+  wrap.innerHTML = "";
+  var allBtn = document.createElement("button");
+  allBtn.className = "cat-tab active";
+  allBtn.innerHTML = '<span>ALL SUBSYSTEMS</span><span class="pct">100%</span>';
+  allBtn.addEventListener("click", function(){ selectCategory(null); });
+  wrap.appendChild(allBtn);
+  CAT_NAMES.forEach(function(name){
+    var btn = document.createElement("button");
+    btn.className = "cat-tab";
+    btn.innerHTML = '<span>'+name.toUpperCase()+'</span><span class="pct">'+categoryAvg(name)+'%</span>';
+    btn.addEventListener("click", function(){ selectCategory(name); });
+    wrap.appendChild(btn);
+  });
+}
+function selectCategory(name){
+  activeCat = name;
+  document.querySelectorAll(".cat-tab").forEach(function(btn,i){
+    btn.classList.toggle("active", (i===0 && name===null) || btn.textContent.indexOf((name||"").toUpperCase())>-1 && name!==null);
+  });
+  document.querySelectorAll(".meter").forEach(function(m){
+    m.classList.toggle("dim", name !== null && m.dataset.cat !== name);
+  });
+  drawRadar(name);
+}
+function renderMeters(){
+  var grid = document.getElementById("meterGrid");
+  grid.innerHTML = "";
+  CAT_NAMES.forEach(function(cat){
+    SKILLS[cat].items.forEach(function(item){
+      var m = document.createElement("div");
+      m.className = "meter";
+      m.dataset.cat = cat;
+      m.innerHTML = '<div class="meter-top"><span class="n">'+item[0]+'</span><span class="v">'+item[1]+'%</span></div>'+
+        '<div class="meter-bar"><i style="--w:'+item[1]+'%"></i></div>';
+      grid.appendChild(m);
+    });
+  });
+}
+function drawRadar(highlight){
+  var svg = document.getElementById("radarSvg");
+  var cx=150, cy=150, maxR=110;
+  var n = CAT_NAMES.length;
+  var pts = [], gridRings = [25,50,75,100];
+  var axisLines = "", gridPolys = "", labels = "";
+  function pointFor(i,val){
+    var angle = (Math.PI*2*i/n) - Math.PI/2;
+    var r = (val/100)*maxR;
+    return [cx + r*Math.cos(angle), cy + r*Math.sin(angle)];
+  }
+  gridRings.forEach(function(ring){
+    var p = [];
+    for (var i=0;i<n;i++) p.push(pointFor(i,ring).join(","));
+    gridPolys += '<polygon points="'+p.join(" ")+'" fill="none" stroke="rgba(0,240,255,.15)" stroke-width="1"/>';
+  });
+  for (var i=0;i<n;i++){
+    var end = pointFor(i,100);
+    axisLines += '<line x1="'+cx+'" y1="'+cy+'" x2="'+end[0]+'" y2="'+end[1]+'" stroke="rgba(0,240,255,.2)" stroke-width="1"/>';
+    var lbl = pointFor(i,118);
+    var isHi = highlight === CAT_NAMES[i];
+    labels += '<text x="'+lbl[0]+'" y="'+lbl[1]+'" text-anchor="middle" font-family="JetBrains Mono" font-size="8.5" fill="'+(isHi?"var(--accent)":"var(--ink-faint)")+'">'+CAT_NAMES[i].split(" ")[0].toUpperCase()+'</text>';
+    pts.push(pointFor(i, categoryAvg(CAT_NAMES[i])).join(","));
+  }
+  var shape = '<polygon points="'+pts.join(" ")+'" fill="var(--accent-soft)" fill-opacity=".18" stroke="var(--accent)" stroke-width="1.6"/>';
+  var dots = "";
+  for (var j=0;j<n;j++){
+    var p2 = pointFor(j, categoryAvg(CAT_NAMES[j]));
+    var isHiDot = highlight === CAT_NAMES[j];
+    dots += '<circle cx="'+p2[0]+'" cy="'+p2[1]+'" r="'+(isHiDot?4.5:3)+'" fill="'+(isHiDot?"var(--accent)":"var(--ink)")+'"/>';
+  }
+  svg.innerHTML = gridPolys + axisLines + shape + dots + labels;
+}
+renderCatTabs();
+renderMeters();
+drawRadar(null);
+
+/* ===================== CONTACT ===================== */
+document.querySelectorAll(".copy-btn[data-copy]").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    var val = btn.getAttribute("data-copy");
+    function done(){
+      btn.textContent = "COPIED";
+      btn.classList.add("copied");
+      setTimeout(function(){ btn.textContent = "COPY"; btn.classList.remove("copied"); }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(val).then(done).catch(function(){ fallbackCopy(val,done); });
+    } else {
+      fallbackCopy(val,done);
+    }
+  });
+});
+function fallbackCopy(text,cb){
+  var ta = document.createElement("textarea");
+  ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); }catch(e){}
+  document.body.removeChild(ta);
+  cb();
+}
+document.getElementById("resumeBtn").addEventListener("click", function(){
+  var el = document.getElementById("txStatus");
+  el.textContent = "RESUME ARCHIVE NOT YET LINKED — ADD YOUR FILE URL HERE.";
+  el.style.color = "var(--amber)";
+  setTimeout(function(){ el.textContent=""; el.style.color="var(--cyan)"; },3200);
+});
+
+document.getElementById("txForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var fill = document.getElementById("txFill");
+  var status = document.getElementById("txStatus");
+  var btn = e.target.querySelector(".tx-submit");
+  btn.disabled = true;
+  status.style.color = "var(--ink-dim)";
+  status.textContent = "ENCRYPTING PACKET...";
+  fill.style.width = "100%";
+  setTimeout(function(){
+    status.style.color = "var(--cyan)";
+    status.textContent = "TRANSMISSION RECEIVED // ASTIK WILL RESPOND VIA RETURN FREQUENCY.";
+    Audio1.confirm();
+    e.target.reset();
+    btn.disabled = false;
+    setTimeout(function(){ fill.style.width = "0%"; }, 600);
+  }, 1100);
+});
+
+/* ===================== TERMINAL ===================== */
+var termHistory = [];
+var termHistIdx = -1;
+function openTerminal(){
+  document.getElementById("terminal").classList.add("open");
+  document.getElementById("termInput").focus();
+}
+function closeTerminal(){ document.getElementById("terminal").classList.remove("open"); }
+document.getElementById("termClose").addEventListener("click", closeTerminal);
+function termPrint(text,cls){
+  var log = document.getElementById("termLog");
+  var div = document.createElement("div");
+  if (cls) div.className = cls;
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+function termPrintCmd(text){
+  var log = document.getElementById("termLog");
+  var div = document.createElement("div");
+  div.className = "cmd";
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+var TERM_COMMANDS = {
+  help:function(){ TERM_LINES_HELP.forEach(function(l){ termPrint(l,"dim"); }); },
+  whoami:function(){
+    termPrint("ASTIK MISHRA // CALLSIGN: ASTIKSTARK","ok");
+    termPrint("ROLE: Computer Science Engineer — Systems, Android & Local AI Architect");
+    termPrint("BASE: VIT Bhopal University, India  //  ORIGIN: Hardoi, UP");
+    termPrint("STATUS: First-year B.Tech CSE builder. Active at HackGrid.","dim");
+  },
+  projects:function(){
+    PROJECTS.forEach(function(p){
+      termPrint(p.name+" — ["+p.status+"]", p.status==="ACTIVE_DEV"?"warn":"ok");
+    });
+  },
+  skills:function(){
+    CAT_NAMES.forEach(function(cat){
+      termPrint(cat.toUpperCase()+": "+categoryAvg(cat)+"% avg — "+SKILLS[cat].items.map(function(i){return i[0];}).join(", "),"dim");
+    });
+  },
+  github:function(){
+    termPrint("OPENING UPLINK: https://github.com/astikstark","ok");
+    window.open("https://github.com/astikstark","_blank","noopener");
+  },
+  status:function(){
+    termPrint("CORE TEMP: NOMINAL  //  UPTIME: "+(Math.random()*40+10).toFixed(1)+"h","ok");
+    termPrint("THREAT LEVEL: MINIMAL  //  LATENCY: "+(8+Math.random()*20|0)+"ms","ok");
+    termPrint("OVERDRIVE: "+(overdriveOn?"ENGAGED":"STANDBY"), overdriveOn?"warn":"dim");
+    termPrint("One might say the numbers look almost suspiciously calm, sir.","dim");
+  },
+  overdrive:function(){
+    setOverdrive(!overdriveOn);
+    termPrint(overdriveOn?"Very well. Overdrive engaged.":"Standing down from overdrive.", overdriveOn?"warn":"ok");
+  },
+  clear:function(){ document.getElementById("termLog").innerHTML = ""; }
+};
+termPrint("J.A.R.V.I.S. INTERFACE READY. Type 'help' for a list of directives.","ok");
+termPrint("Good to see you, sir. Systems nominal, more or less.","dim");
+
+document.getElementById("termForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var input = document.getElementById("termInput");
+  var raw = input.value.trim();
+  if (!raw) return;
+  termPrintCmd(raw);
+  termHistory.push(raw);
+  termHistIdx = termHistory.length;
+  var cmd = raw.toLowerCase();
+  if (TERM_COMMANDS[cmd]) TERM_COMMANDS[cmd]();
+  else termPrint("UNRECOGNIZED DIRECTIVE: '"+raw+"'. Type 'help' for available commands.","warn");
+  input.value = "";
+});
+document.getElementById("termInput").addEventListener("keydown", function(e){
+  if (e.key === "ArrowUp"){
+    if (termHistIdx>0){ termHistIdx--; e.target.value = termHistory[termHistIdx]; }
+    e.preventDefault();
+  } else if (e.key === "ArrowDown"){
+    if (termHistIdx < termHistory.length-1){ termHistIdx++; e.target.value = termHistory[termHistIdx]; }
+    else { termHistIdx = termHistory.length; e.target.value = ""; }
+    e.preventDefault();
+  }
+});
+
+/* ===================== MISC ===================== */
+document.getElementById("yearNow").textContent = new Date().getFullYear();
+runBoot();
+
+/* hot-reload friendly boot (viewer republish safety net) */
+if (window.claude && window.claude.hot){
+  var start = function(){ /* state is ephemeral by design; nothing to restore */ };
+  if (window.claude.hot.ready) window.claude.hot.ready(start); else start();
+}
+})();
+</script>
+
+</body></html>
